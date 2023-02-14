@@ -4,7 +4,7 @@ from .serializers import MyUserSerializer,MyUserProfileSerializer,AuthorSerializ
 from rest_framework.response import Response
 from rest_framework import status,permissions
 from django.contrib.auth import authenticate
-from django.http import Http404
+from django.http import Http404,HttpResponse
 from rest_framework.authtoken.models import Token
 from rest_framework.generics import ListAPIView
 from rest_framework.pagination import PageNumberPagination
@@ -14,7 +14,7 @@ from rest_framework import filters
 
 
 class CustomPagination(PageNumberPagination):
-    page_size = 5
+    page_size = 10
     
 
 
@@ -25,31 +25,34 @@ class RegisterAPIView(APIView):
     
     def post(self, request, format=None):
         data = request.data
-        #email = request.data.get('email')
-        #password = request.data.get('password')
+        data['authors'] = []
+        data['books'] = []
         serializer = MyUserSerializer(data=data)
         
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
         user.set_password(data['password'])
         user.save()
-        response = Response()
-
-        response.data = {
+        
+        return Response({
             'status' : status.HTTP_201_CREATED,
             'message': 'User Registered Successfully',
-           }
-
-        return response
+          })
 
 class LoginAPIView(APIView):
     
-    def post(self, request, format=None):  # sourcery skip: use-named-expression
+    def post(self, request, format=None): 
+         
         email = request.data.get("email")
         password = request.data.get("password")
-        user = authenticate(username=email, password=password)
-        token, created  = Token.objects.get_or_create(user=user)
-        print(token)
+        try:
+            user = authenticate(username=email, password=password)
+            token, created  = Token.objects.get_or_create(user=user)
+        except Exception:
+            return Response({
+                "error": "An error occurred while trying to authenticate the user or retrieve the token",
+                "status":status.HTTP_400_BAD_REQUEST
+                })
         if user:    
             return Response(
                 {
@@ -63,6 +66,27 @@ class LoginAPIView(APIView):
                 "error": "Wrong Credentials",
                 "status":status.HTTP_400_BAD_REQUEST
                 })
+
+    
+    '''def post(self, request, format=None): 
+
+        email = request.data.get("email")
+        password = request.data.get("password")
+        user = authenticate(username=email, password=password)
+        token, created  = Token.objects.get_or_create(user=user)
+        if user:    
+            return Response(
+                {
+                "status":status.HTTP_200_OK, 
+                "massage":"User Logged in succesfully..",
+                "Token": token.key
+                }
+                )
+        else:
+            return Response({
+                "error": "Wrong Credentials",
+                "status":status.HTTP_400_BAD_REQUEST
+                })'''
 
 class LogoutAPIView(APIView):
     
@@ -80,7 +104,7 @@ class LogoutAPIView(APIView):
 
 class MyUserDataAPIView(ListAPIView):
 
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [permissions.IsAuthenticated]
     pagination_class = CustomPagination
     queryset = MyUser.objects.all()
     serializer_class = MyUserSerializer      
@@ -89,7 +113,10 @@ class MyUserProfileAPIView(APIView):
     
     permission_classes = [permissions.IsAuthenticated]
     def get(self, request, format=None):
-        data = MyUserProfile.objects.get(myuser=request.user.id)
+        try:
+            data = MyUserProfile.objects.get(myuser=request.user.id)
+        except MyUserProfile.DoesNotExist as e:
+            raise Http404("Details not found") from e
         serializer = MyUserProfileSerializer(data)
         return Response(serializer.data) 
 
@@ -102,12 +129,25 @@ class MyUserProfileAPIView(APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
 
-        serializer.data['myuser'] = request.user.email
         return Response({
             'status' : status.HTTP_201_CREATED,
-            'message': 'UserProfile Updated Successfully',
+            'message': 'UserProfile Created Successfully',
             'Profile': serializer.data
         })
+
+    
+    def put(self, request, format=None):
+        profile_to_update = MyUserProfile.objects.get(myuser=request.user.id)
+        serializer = MyUserProfileSerializer(instance = profile_to_update, data=request.data)
+
+        serializer.is_valid(raise_exception=True)
+
+        serializer.save()
+
+        return Response({
+            'message': 'User Updated Successfully',
+            'data': serializer.data
+        }) 
 
 
 class AuthorCreateAPIView(APIView):
@@ -115,21 +155,19 @@ class AuthorCreateAPIView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, format=None):
+
         data = request.data
+        data['owner'] = request.user.id
         serializer = AuthorSerializer(data=data)
 
         serializer.is_valid(raise_exception=True)
 
         serializer.save()
 
-        response = Response()
-
-        response.data = {
+        return Response({
             'message': 'Author Created Successfully',
             'data': serializer.data
-        }
-
-        return response       
+        })      
 
 
 class AuthorDetailsAPIView(ListAPIView):
@@ -161,31 +199,37 @@ class SingleAuthorAPIView(APIView):
    
 
     def put(self, request, pk=None, format=None):
-        author_to_update = Author.objects.get(pk=pk)
-        serializer = AuthorSerializer(instance=author_to_update,data=request.data)
+        try:
+            author_to_update = Author.objects.get(pk=pk)
+        except Author.DoesNotExist as e:
+            raise Http404("Details not found") from e    
+        if author_to_update.owner.id == request.user.id:
+            data = request.data
+            data['owner'] = request.user.id
+            serializer = AuthorSerializer(instance=author_to_update,data=data)
 
-        serializer.is_valid(raise_exception=True)
+            serializer.is_valid(raise_exception=True)
 
-        serializer.save()
+            serializer.save()
 
-        response = Response()
+            return Response({
+               'message': 'Author Updated Successfully',
+               'data': serializer.data
+            })
 
-        response.data = {
-            'message': 'Author Updated Successfully',
-            'data': serializer.data
-        }
-
-        return response
+        return HttpResponse('403 Forbidden : You do not have permission to perform this action...', status=403)
 
     def delete(self, request, pk, format=None):
-        author_to_delete =  Author.objects.get(pk=pk)
-
+        try:
+            author_to_delete =  Author.objects.get(pk=pk)
+        except Author.DoesNotExist as e:
+            raise Http404("Author Not found") from e
+        if author_to_delete.owner.id != request.user.id:
+            return HttpResponse('403 Forbidden : You do not have permission to perform this action...', status=403)
         author_to_delete.delete()
-
         return Response({
-            'message': 'Author Deleted Successfully'
-        })
-
+        'message': 'Author Deleted Successfully'
+        }) 
 
 class BookCreateAPIView(APIView):
 
@@ -199,24 +243,24 @@ class BookCreateAPIView(APIView):
          except Author.DoesNotExist as e:
              raise Http404("Author does not exist") from e
 
-         data['author'] = author_id
-
-         serializer = BooksSerializer(data=data)
-
-         serializer.is_valid(raise_exception=True)
-
-         serializer.save()
-
-         response = Response()
-
-         response.data = {
+         userAuthors = list(request.user.authors.values_list('id',flat=True))    
+         if author.id in userAuthors:
+            data['author'] = author.id
+            data['bookOwner'] = request.user.id
+            serializer = BooksSerializer(data=data)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return Response({
              'message': 'Book Created Successfully',
              'data': serializer.data
-         }
+              })
+         
 
-         return response
+         return HttpResponse("Please Enter your authors_id only..",status=403)     
 
-class BookDetailsAPIView(ListAPIView):
+         
+
+class BooksAPIView(ListAPIView):
     
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = CustomPagination
@@ -246,27 +290,36 @@ class SingleBookAPIView(APIView):
    
 
     def put(self, request, pk=None, format=None):
-        Book_to_update = Books.objects.get(pk=pk)
-        serializer = BooksSerializer(instance=Book_to_update,data=request.data)
+        
+        
+        try:
+            Book_to_update = Books.objects.get(pk=pk)
+        except Books.DoesNotExist as e:
+            raise Http404("Details not found") from e    
 
-        serializer.is_valid(raise_exception=True)
+        if Book_to_update.bookOwner.id == request.user.id:
+            data = request.data
+            data['bookOwner'] = request.user.id
+            serializer = BooksSerializer(instance=Book_to_update,data=data)
 
-        serializer.save()
+            serializer.is_valid(raise_exception=True)
 
-        response = Response()
-
-        response.data = {
+            serializer.save()
+            return Response({
             'message': 'Book Updated Successfully',
             'data': serializer.data
-        }
+             })
 
-        return response
+        return HttpResponse('403 Forbidden : You do not have permission to perform this action...', status=403)
 
     def delete(self, request, pk, format=None):
-        Book_to_delete =  Books.objects.get(pk=pk)
-
-        Book_to_delete.delete()
-
+        try:
+            book_to_delete =  Books.objects.get(pk=pk)
+        except Books.DoesNotExist as e:
+            raise Http404("Author Not found") from e
+        if book_to_delete.bookOwner.id != request.user.id:
+            return HttpResponse('403 Forbidden : You do not have permission to perform this action...', status=403)
+        book_to_delete.delete()
         return Response({
-            'message': 'Book Deleted Successfully'
-        })
+               'message': 'Book Deleted Successfully'
+            }) 

@@ -7,7 +7,7 @@ AuthorCreateAPIView,
 AuthorDetailsAPIView,
 SingleAuthorAPIView,
 BookCreateAPIView,
-BookDetailsAPIView,
+BooksAPIView,
 SingleBookAPIView,
 LogoutAPIView
 )
@@ -21,7 +21,7 @@ urlpatterns = [
     path('authors/', AuthorDetailsAPIView.as_view()),             
     path('authors/<int:pk>/', SingleAuthorAPIView.as_view()),   # FOR Reading, Updating, Deleting the authors
     path('createbook/', BookCreateAPIView.as_view()),        
-    path('books/', BookDetailsAPIView.as_view()),
+    path('books/', BooksAPIView.as_view()),
     path('books/<int:pk>/', SingleBookAPIView.as_view()),   # FOR Reading, Updating, Deleting the books
     path('logout/', LogoutAPIView.as_view()),
 ]

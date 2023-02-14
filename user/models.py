@@ -71,6 +71,7 @@ class Author(models.Model):
     name = models.CharField(max_length=100)
     email = models.EmailField(unique=True)
     bio = models.TextField()
+    owner = models.ForeignKey(MyUser, related_name='authors', on_delete=models.SET_NULL,null=True)
 
     def __str__(self):
         return self.name
@@ -82,6 +83,7 @@ class Books(models.Model):
     description = models.TextField()
     publishDate = models.DateField(auto_now_add=True)
     author = models.ForeignKey(Author, on_delete=models.SET_NULL, null=True)
+    bookOwner = models.ForeignKey(MyUser, related_name='books', on_delete=models.SET_NULL,null=True)
 
     def __str__(self):
         return self.title
