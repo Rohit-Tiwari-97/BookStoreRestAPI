@@ -9,6 +9,7 @@ class MyUser(AbstractBaseUser):
     USER_ROLES = [
         ('Admin', 'Admin'),
         ('Manager', 'Manager'),
+        ('Author', 'Author'), 
         ('Customer', 'Customer'),
     ]
 
@@ -54,8 +55,8 @@ class MyUser(AbstractBaseUser):
 
 class MyUserProfile(models.Model):
 
-    firstName = models.CharField(max_length=250,default='')
-    lastName = models.CharField(max_length=250,default='')
+    firstName = models.CharField(max_length=250)
+    lastName = models.CharField(max_length=250)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     myuser = models.OneToOneField(MyUser, on_delete=models.SET_NULL,null=True)
@@ -65,25 +66,14 @@ class MyUserProfile(models.Model):
 
 
 
-
-class Author(models.Model):
-
-    name = models.CharField(max_length=100)
-    email = models.EmailField(unique=True)
-    bio = models.TextField()
-    owner = models.ForeignKey(MyUser, related_name='authors', on_delete=models.SET_NULL,null=True)
-
-    def __str__(self):
-        return self.name
-
 class Books(models.Model):
-
+    
     title = models.CharField(max_length=100)
     isbn = models.CharField(max_length=250,unique=True)
     description = models.TextField()
     publishDate = models.DateField(auto_now_add=True)
-    author = models.ForeignKey(Author, on_delete=models.SET_NULL, null=True)
-    bookOwner = models.ForeignKey(MyUser, related_name='books', on_delete=models.SET_NULL,null=True)
+    is_available = models.BooleanField(default=True)
+    author = models.ForeignKey(MyUser, on_delete=models.SET_NULL,null=True)
 
     def __str__(self):
         return self.title

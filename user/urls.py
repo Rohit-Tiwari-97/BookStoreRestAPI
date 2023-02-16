@@ -3,13 +3,14 @@ from .views import (RegisterAPIView,
 LoginAPIView,
 MyUserDataAPIView,
 MyUserProfileAPIView,
-AuthorCreateAPIView,
 AuthorDetailsAPIView,
-SingleAuthorAPIView,
+DeleteAuthorAPIView,
 BookCreateAPIView,
 BooksAPIView,
-SingleBookAPIView,
-LogoutAPIView
+BookGetUpdateAPIView,
+AuthorBookDeleteAPIView,
+AdminBookDeleteAPIView,
+LogoutAPIView,
 )
 
 urlpatterns = [
@@ -17,11 +18,12 @@ urlpatterns = [
     path('login/', LoginAPIView.as_view()),         
     path('data/', MyUserDataAPIView.as_view()),
     path('profile/', MyUserProfileAPIView.as_view()),
-    path('createauthor/', AuthorCreateAPIView.as_view()),
     path('authors/', AuthorDetailsAPIView.as_view()),             
-    path('authors/<int:pk>/', SingleAuthorAPIView.as_view()),   # FOR Reading, Updating, Deleting the authors
+    path('deleteauthor/<int:pk>/', DeleteAuthorAPIView.as_view()),   
     path('createbook/', BookCreateAPIView.as_view()),        
     path('books/', BooksAPIView.as_view()),
-    path('books/<int:pk>/', SingleBookAPIView.as_view()),   # FOR Reading, Updating, Deleting the books
+    path('book/<int:pk>/', BookGetUpdateAPIView.as_view()),
+    path('authorbook/<int:pk>/', AuthorBookDeleteAPIView.as_view()),
+    path('adminbook/<int:pk>/', AdminBookDeleteAPIView.as_view()),   
     path('logout/', LogoutAPIView.as_view()),
 ]
