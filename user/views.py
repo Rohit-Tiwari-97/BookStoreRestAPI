@@ -40,7 +40,7 @@ class LoginAPIView(APIView):
         email = request.data.get("email")
         password = request.data.get("password")
         if user := authenticate(username=email, password=password):
-            token, created  = Token.objects.get_or_create(user=user)
+            token, _  = Token.objects.get_or_create(user=user)
             return Response(
                 {
                 "status":status.HTTP_200_OK, 
@@ -112,24 +112,19 @@ class MyUserProfileAPIView(APIView):
 class AuthorDetailsAPIView(APIView):
     permission_classes = [permissions.IsAuthenticated,permissions.IsAdminUser]
     def get(self, request):
-        data = MyUser.objects.all()
+        data = MyUser.objects.filter(userRole='Author')
         serializer = MyUserSerializer(data,many=True)
-        authors = [i for i in serializer.data if i['userRole'] == 'Author']
-        return Response(authors)
+        return Response(serializer.data)
 
 class DeleteAuthorAPIView(APIView):
     permission_classes = [permissions.IsAuthenticated,permissions.IsAdminUser]
     def delete(self, request, pk=None):
-        data = MyUser.objects.all()
-        serializer = MyUserSerializer(data,many=True)
-        authors_id = [i['id'] for i in serializer.data if i['userRole'] == 'Author']
-        if pk in authors_id:
-            author_to_delete = get_object_or_404(MyUser, pk=pk)
-            author_to_delete.delete()
-            return Response({
+        author_to_delete = get_object_or_404(MyUser.objects.filter(userRole='Author'), pk=pk)
+        author_to_delete.delete()
+        return Response({
                'message': 'Author Deleted Successfully'
                 })    
-        return Response("Author not Found..",status=404)
+   
 
 class BookCreateAPIView(APIView):
 
