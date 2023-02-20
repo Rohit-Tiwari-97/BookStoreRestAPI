@@ -1,3 +1,4 @@
+import pyotp
 from rest_framework.views import APIView
 from .models import MyUser,MyUserProfile,Books
 from .serializers import MyUserSerializer,MyUserProfileSerializer,BooksSerializer
@@ -18,21 +19,49 @@ class CustomPagination(PageNumberPagination):
     page_size = 5
     
 class RegisterAPIView(APIView):
-    
     def post(self, request):
-        data = request.data
+        serializer = MyUserSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        secret_key = pyotp.random_base32()
+        totp = pyotp.TOTP(secret_key, interval = 180)
+        otp = totp.now()
+        request.session['secret_key'] = secret_key
+        request.session['data'] = request.data
+    
+        return Response({
+            "OTP": otp,
+            "Next_step" : 'Please verify the otp to complete the registration.',
+            "status" : status.HTTP_200_OK
+          })
+
+class VerifyOtpAPIView(APIView):
+    def post(self, request):
+        secret = request.session.get('secret_key')
+        otp = request.data.get('otp')
+        data =  request.session.get('data')
+        if secret and otp:
+            return self.verify_otp(secret, otp, data)
+        return Response("Secret code not found",status=400)  
+
+     
+    def verify_otp(self, secret, otp, data):
+        totp = pyotp.TOTP(secret, interval = 180)
+        is_valid = totp.verify(otp)
+
+        if is_valid  is True:
+            return self.createmyuser(data, is_valid)
+        return Response({'message': 'OTP Verification Failed..!!, Please regenrate the OTP', "OTP_is_valid":is_valid,"status":status.HTTP_403_FORBIDDEN},status=403)
+
+    def createmyuser(self, data, is_valid):
         serializer = MyUserSerializer(data=data)
-        
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
         user.set_password(data['password'])
+        user.is_active = True
         user.save()
-        
-        return Response({
-            'status' : status.HTTP_201_CREATED,
-            'message': 'User Registered Successfully',
-          })
-
+        return Response({'message': 'OTP Verification Successfull..!!, User Registered Successfully', "OTP_is_valid":is_valid,"status":status.HTTP_201_CREATED})
+     
 class LoginAPIView(APIView):
     
     def post(self, request, format=None): 
@@ -125,7 +154,6 @@ class DeleteAuthorAPIView(APIView):
                'message': 'Author Deleted Successfully'
                 })    
    
-
 class BookCreateAPIView(APIView):
 
     permission_classes = [permissions.IsAuthenticated,(IsAuthorOrReadOnly|permissions.IsAdminUser)]

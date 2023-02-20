@@ -1,5 +1,6 @@
 from django.urls import path
 from .views import (RegisterAPIView,
+VerifyOtpAPIView,
 LoginAPIView,
 MyUserDataAPIView,
 MyUserProfileAPIView,
@@ -14,7 +15,8 @@ LogoutAPIView,
 )
 
 urlpatterns = [
-    path('register/', RegisterAPIView.as_view()),   
+    path('register/', RegisterAPIView.as_view()), 
+    path('otpverification/', VerifyOtpAPIView.as_view()),   
     path('login/', LoginAPIView.as_view()),         
     path('data/', MyUserDataAPIView.as_view()),
     path('profile/', MyUserProfileAPIView.as_view()),

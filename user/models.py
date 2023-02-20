@@ -20,7 +20,7 @@ class MyUser(AbstractBaseUser):
     )
     created_at = models.DateTimeField(auto_now_add=True)
     userRole = models.CharField(max_length=20,choices=USER_ROLES,default='Customer')
-    is_active = models.BooleanField(default=True)
+    is_active = models.BooleanField(default=False)
 
     is_admin = models.BooleanField(default=False)
 
