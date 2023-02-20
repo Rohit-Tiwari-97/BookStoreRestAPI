@@ -1,7 +1,8 @@
 import pyotp
+from django.utils import timezone
 from rest_framework.views import APIView
-from .models import MyUser,MyUserProfile,Books
-from .serializers import MyUserSerializer,MyUserProfileSerializer,BooksSerializer
+from .models import MyUser,MyUserProfile,Books,OtpModel
+from .serializers import MyUserSerializer,MyUserProfileSerializer,OtpSerializer,BooksSerializer
 from rest_framework.response import Response
 from rest_framework import status,permissions
 from django.contrib.auth import authenticate
@@ -17,50 +18,68 @@ from rest_framework import filters
 
 class CustomPagination(PageNumberPagination):
     page_size = 5
-    
+
+def generate_otp(user_id):
+    secret_key = pyotp.random_base32()
+    totp = pyotp.TOTP(secret_key)
+    otp = totp.now()
+    try:
+        otp_model = OtpModel.objects.get(otp_myuser=user_id)
+        otp_model.otp_code = otp
+        otp_model.save()
+    except OtpModel.DoesNotExist:
+        otp_serializer = OtpSerializer(data={'otp_myuser':user_id,'otp_code':otp})
+        otp_serializer.is_valid(raise_exception=True)
+        otp_serializer.save()
+
+    return otp
+
 class RegisterAPIView(APIView):
     def post(self, request):
         serializer = MyUserSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        user.set_password(request.data['password'])
+        user.save()
+        otp = generate_otp(user.id)
+        return Response({"message":"User Registered successfully","OTP":otp,
+            "Next_step" : 'Please verify the otp to log in',
+            "status" : status.HTTP_201_CREATED
+          },status=201)  
 
-        secret_key = pyotp.random_base32()
-        totp = pyotp.TOTP(secret_key, interval = 180)
-        otp = totp.now()
-        request.session['secret_key'] = secret_key
-        request.session['data'] = request.data
-    
-        return Response({
-            "OTP": otp,
-            "Next_step" : 'Please verify the otp to complete the registration.',
-            "status" : status.HTTP_200_OK
-          })
+   
+       
+class RegenrateOtpAPIView(APIView):
+    def post(self, request):
+        user = get_object_or_404(MyUser,email=request.data.get('email'))
+        otp = generate_otp(user.id)
+        return Response({"OTP":otp,"status":status.HTTP_200_OK})
+
 
 class VerifyOtpAPIView(APIView):
     def post(self, request):
-        secret = request.session.get('secret_key')
-        otp = request.data.get('otp')
-        data =  request.session.get('data')
-        if secret and otp:
-            return self.verify_otp(secret, otp, data)
-        return Response("Secret code not found",status=400)  
+        email = request.data.get('email')
+        user_otp = request.data.get('otp')
+        user = get_object_or_404(MyUser, email=email)
+        model_otp = get_object_or_404(OtpModel, otp_myuser=user)
+        #model_otp = get_object_or_404(OtpModel.objects.filter(otp_myuser=user).order_by('-created_at')[:1])
+        
+        if model_otp.otp_code != user_otp:
+            return Response({'error': 'Invalid OTP'}, status=status.HTTP_400_BAD_REQUEST)
 
-     
-    def verify_otp(self, secret, otp, data):
-        totp = pyotp.TOTP(secret, interval = 180)
-        is_valid = totp.verify(otp)
-
-        if is_valid  is True:
-            return self.createmyuser(data, is_valid)
-        return Response({'message': 'OTP Verification Failed..!!, Please regenrate the OTP', "OTP_is_valid":is_valid,"status":status.HTTP_403_FORBIDDEN},status=403)
-
-    def createmyuser(self, data, is_valid):
-        serializer = MyUserSerializer(data=data)
-        serializer.is_valid(raise_exception=True)
-        user = serializer.save()
-        user.set_password(data['password'])
+        time_elapsed = timezone.now() - model_otp.updated_at
+        if time_elapsed.total_seconds() > 60:
+            return Response({'error': 'OTP has expired..!!, Please Regenerate the otp','time':time_elapsed}, status=status.HTTP_400_BAD_REQUEST)
+    
         user.is_active = True
         user.save()
-        return Response({'message': 'OTP Verification Successfull..!!, User Registered Successfully', "OTP_is_valid":is_valid,"status":status.HTTP_201_CREATED})
+        return Response({'message': 'OTP verification successful..',"time":time_elapsed}, status=status.HTTP_200_OK) 
+
+     
+   
+   
+
+       
      
 class LoginAPIView(APIView):
     

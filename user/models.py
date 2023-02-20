@@ -64,6 +64,15 @@ class MyUserProfile(models.Model):
     def __str__(self):
         return f"{self.firstName} {self.lastName}"
 
+class OtpModel(models.Model):
+    otp_myuser = models.ForeignKey(MyUser,on_delete=models.SET_NULL,null=True)
+    otp_code = models.CharField(max_length=10)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.otp_myuser
+
 
 
 class Books(models.Model):
