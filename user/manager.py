@@ -28,5 +28,6 @@ class MyUserManager(BaseUserManager):
             userRole,
         )
         user.is_admin = True
+        user.is_active = True
         user.save(using=self._db)
         return user

@@ -20,7 +20,7 @@ class MyUser(AbstractBaseUser):
     )
     created_at = models.DateTimeField(auto_now_add=True)
     userRole = models.CharField(max_length=20,choices=USER_ROLES,default='Customer')
-    is_active = models.BooleanField(default=True)
+    is_active = models.BooleanField(default=False)
 
     is_admin = models.BooleanField(default=False)
 
@@ -63,6 +63,15 @@ class MyUserProfile(models.Model):
 
     def __str__(self):
         return f"{self.firstName} {self.lastName}"
+
+class OtpModel(models.Model):
+    otp_myuser = models.ForeignKey(MyUser,on_delete=models.SET_NULL,null=True)
+    otp_code = models.CharField(max_length=10)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.otp_myuser
 
 
 

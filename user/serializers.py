@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from user.models import MyUser,MyUserProfile,Books
+from user.models import MyUser,MyUserProfile,OtpModel,Books
 
 
 
@@ -15,7 +15,10 @@ class MyUserProfileSerializer(serializers.ModelSerializer):
         model = MyUserProfile   
         fields = '__all__'
 
-    
+class OtpSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OtpModel
+        fields = '__all__'   
 
 class BooksSerializer(serializers.ModelSerializer):
     #author = serializers.PrimaryKeyRelatedField(queryset=MyUser.objects.all())
